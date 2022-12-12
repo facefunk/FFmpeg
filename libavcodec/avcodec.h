@@ -2057,6 +2057,17 @@ typedef struct AVCodecContext {
      *             The decoder can then override during decoding as needed.
      */
     AVChannelLayout ch_layout;
+
+    /**
+     * Subtitle codecs only. Bit set of AV_SUBTITLE_FLAG_*.
+     *
+     * Some subtitle codecs may use this field to determine the subtitle
+     * display flags to encode.
+     *
+     * - encoding: set by user
+     * - decoding: unused
+     */
+    int subtitle_flags;
 } AVCodecContext;
 
 /**

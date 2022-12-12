@@ -50,6 +50,40 @@
 #define FONTSIZE_SCALE(s,fs) ((fs) * (s)->font_scale_factor + 0.5)
 #define av_bprint_append_any(buf, data, size)   av_bprint_append_data(buf, ((const char*)data), size)
 
+/**
+ * https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap3/qtff3.html
+ *
+ * Display flags
+ * A 32-bit integer containing flags that describe how the subtitle text should
+ * be drawn.
+ * The following flags are defined:
+ *
+ * Vertical placement
+ * Controls vertical placement of the subtitle text.
+ * If this flag is set, the subtitle media handler uses the top coordinate of
+ * the display bounds of the override 'tbox' text box to determine the
+ * subtitle’s vertical placement as described in Subtitle Track Header Size
+ * and Placement. Otherwise, the subtitle displays at the bottom of the video.
+ */
+#define DISPLAY_FLAG_VERTICAL_PLACEMENT_TOP 0x20000000
+
+/**
+ * Some samples are forced
+ * Indicates whether any subtitle samples contain forced atoms. If this flag is
+ * set, at least one sample contains a forced ('frcd') atom as described in
+ * Subtitle Sample Data.
+ */
+#define DISPLAY_FLAG_SOME_SAMPLES_FORCED    0x40000000
+
+/**
+ * All samples are forced
+ * If this flag is set, the subtitle media handler treats all samples as forced
+ * subtitles, regardless of the presence or absence of a 'frcd' atom.
+ * If this flag is set, the Some Samples Are Forced flag must also be set
+ * (making 0xC0000000).
+ */
+#define DISPLAY_FLAG_ALL_SAMPLES_FORCED     0x80000000
+
 typedef struct {
     uint16_t style_start;
     uint16_t style_end;
@@ -183,6 +217,7 @@ static int encode_sample_description(AVCodecContext *avctx)
     int font_names_total_len = 0;
     MovTextContext *s = avctx->priv_data;
     uint8_t buf[30], *p = buf;
+    uint32_t display_flags = 0;
 
     //  0x00, 0x00, 0x00, 0x00, // uint32_t displayFlags
     //  0x01,                   // int8_t horizontal-justification
@@ -241,7 +276,11 @@ static int encode_sample_description(AVCodecContext *avctx)
                      (255 - ((uint32_t)style->back_color >> 24));
     }
 
-    bytestream_put_be32(&p, 0); // displayFlags
+    if (avctx->subtitle_flags & AV_SUBTITLE_FLAG_FORCED)
+        display_flags = DISPLAY_FLAG_SOME_SAMPLES_FORCED |
+                        DISPLAY_FLAG_ALL_SAMPLES_FORCED;
+
+    bytestream_put_be32(&p, display_flags); // displayFlags
     bytestream_put_be16(&p, 0x01FF); // horizontal/vertical justification (2x int8_t)
     bytestream_put_be32(&p, back_color);
     bytestream_put_be64(&p, 0); // BoxRecord - 4xint16_t: top, left, bottom, right

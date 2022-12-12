@@ -1717,6 +1717,11 @@ static int set_dispositions(Muxer *mux, const OptionsContext *o)
 
             if (ret < 0)
                 goto finish;
+
+            // For output streams, Set subtitle flags to forced when stream
+            // disposition is forced.
+            if(ost->enc_ctx && ost->st->disposition & AV_DISPOSITION_FORCED)
+                ost->enc_ctx->subtitle_flags |= AV_SUBTITLE_FLAG_FORCED;
         }
     } else {
         // For each media type with more than one stream, find a suitable stream to
