@@ -503,7 +503,7 @@ static const AVCodec *choose_decoder(const OptionsContext *o, AVFormatContext *s
 
     MATCH_PER_STREAM_OPT(codec_names, str, codec_name, s, st);
     if (codec_name) {
-        const AVCodec *codec = find_codec_or_die(codec_name, st->codecpar->codec_type, 0);
+        const AVCodec *codec = find_codec_or_die(NULL, codec_name, st->codecpar->codec_type, 0);
         st->codecpar->codec_id = codec->id;
         if (recast_media && st->codecpar->codec_type != codec->type)
             st->codecpar->codec_type = codec->type;
@@ -628,8 +628,12 @@ static void add_input_streams(const OptionsContext *o, Demuxer *d)
         MATCH_PER_STREAM_OPT(codec_tags, str, codec_tag, ic, st);
         if (codec_tag) {
             uint32_t tag = strtol(codec_tag, &next, 0);
-            if (*next)
-                tag = AV_RL32(codec_tag);
+            if (*next) {
+                uint8_t buf[4] = { 0 };
+                memcpy(buf, codec_tag, FFMIN(sizeof(buf), strlen(codec_tag)));
+                tag = AV_RL32(buf);
+            }
+
             st->codecpar->codec_tag = tag;
         }
 
@@ -883,9 +887,10 @@ int ifile_open(const OptionsContext *o, const char *filename)
     }
 
     if (!strcmp(filename, "-"))
-        filename = "pipe:";
+        filename = "fd:";
 
     stdin_interaction &= strncmp(filename, "pipe:", 5) &&
+                         strcmp(filename, "fd:") &&
                          strcmp(filename, "/dev/stdin");
 
     /* get default parameters from command line */
@@ -936,13 +941,13 @@ int ifile_open(const OptionsContext *o, const char *filename)
     MATCH_PER_TYPE_OPT(codec_names, str,     data_codec_name, ic, "d");
 
     if (video_codec_name)
-        ic->video_codec    = find_codec_or_die(video_codec_name   , AVMEDIA_TYPE_VIDEO   , 0);
+        ic->video_codec    = find_codec_or_die(NULL, video_codec_name   , AVMEDIA_TYPE_VIDEO   , 0);
     if (audio_codec_name)
-        ic->audio_codec    = find_codec_or_die(audio_codec_name   , AVMEDIA_TYPE_AUDIO   , 0);
+        ic->audio_codec    = find_codec_or_die(NULL, audio_codec_name   , AVMEDIA_TYPE_AUDIO   , 0);
     if (subtitle_codec_name)
-        ic->subtitle_codec = find_codec_or_die(subtitle_codec_name, AVMEDIA_TYPE_SUBTITLE, 0);
+        ic->subtitle_codec = find_codec_or_die(NULL, subtitle_codec_name, AVMEDIA_TYPE_SUBTITLE, 0);
     if (data_codec_name)
-        ic->data_codec     = find_codec_or_die(data_codec_name    , AVMEDIA_TYPE_DATA    , 0);
+        ic->data_codec     = find_codec_or_die(NULL, data_codec_name    , AVMEDIA_TYPE_DATA    , 0);
 
     ic->video_codec_id     = video_codec_name    ? ic->video_codec->id    : AV_CODEC_ID_NONE;
     ic->audio_codec_id     = audio_codec_name    ? ic->audio_codec->id    : AV_CODEC_ID_NONE;
